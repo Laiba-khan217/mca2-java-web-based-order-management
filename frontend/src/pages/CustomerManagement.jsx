@@ -73,10 +73,22 @@ export default function CustomerManagement() {
     setShowModal(true);
   };
 
+  const handleDelete = async (id, companyName) => {
+    if (window.confirm(`Are you sure you want to delete customer "${companyName}"?`)) {
+      try {
+        await api.delete(`/customers/${id}`);
+        loadCustomers();
+      } catch (err) {
+        alert(err.response?.data?.message || 'Failed to delete customer');
+      }
+    }
+  };
+
   const filtered = customers.filter((c) =>
-    c.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (c.isActive !== false) &&
+    (c.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.customerCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (c.city && c.city.toLowerCase().includes(searchTerm.toLowerCase()))
+    (c.city && c.city.toLowerCase().includes(searchTerm.toLowerCase())))
   );
 
   return (
@@ -142,8 +154,11 @@ export default function CustomerManagement() {
                   <td><span className="badge bg-light text-dark border">{c.gstin || 'N/A'}</span></td>
                   <td>{c.city}, {c.state}</td>
                   <td className="text-end">
-                    <button className="btn btn-outline-primary btn-sm me-1" onClick={() => handleEdit(c)}>
+                    <button className="btn btn-outline-primary btn-sm me-1" title="Edit" onClick={() => handleEdit(c)}>
                       <i className="bi bi-pencil"></i>
+                    </button>
+                    <button className="btn btn-outline-danger btn-sm" title="Delete" onClick={() => handleDelete(c.id, c.companyName)}>
+                      <i className="bi bi-trash"></i>
                     </button>
                   </td>
                 </tr>
