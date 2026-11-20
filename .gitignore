@@ -1,0 +1,33 @@
+﻿# Byte-compiled / optimized / class files
+target/
+*.class
+
+# Log files
+*.log
+logs/
+
+# Package Files
+*.jar
+*.war
+
+# Virtual environment / node_modules
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# IDE and Editor files
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
