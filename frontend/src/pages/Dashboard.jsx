@@ -1,34 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
 import api from '../services/api';
 
 export default function Dashboard() {
   const { user, isAdmin, isOrderManager, isProcurementOfficer } = useAuth();
-  const [stats, setStats] = useState({
-    customers: 0,
-    suppliers: 0,
-    products: 0,
-    materials: 0,
-  });
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadStats() {
       try {
-        const [cRes, sRes, pRes, mRes] = await Promise.all([
-          api.get('/customers').catch(() => ({ data: { data: [] } })),
-          api.get('/suppliers').catch(() => ({ data: { data: [] } })),
-          api.get('/products').catch(() => ({ data: { data: [] } })),
-          api.get('/raw-materials').catch(() => ({ data: { data: [] } })),
-        ]);
-        setStats({
-          customers: cRes.data?.data?.length || 0,
-          suppliers: sRes.data?.data?.length || 0,
-          products: pRes.data?.data?.length || 0,
-          materials: mRes.data?.data?.length || 0,
-        });
+        setLoading(true);
+        const res = await api.get('/dashboard/stats');
+        setStats(res.data.data);
       } catch (err) {
-        console.error('Failed to load summary stats', err);
+        console.error('Failed to load dashboard stats', err);
       } finally {
         setLoading(false);
       }
@@ -36,46 +23,62 @@ export default function Dashboard() {
     loadStats();
   }, []);
 
+  if (loading) {
+    return (
+      <div className="text-center py-5">
+        <div className="spinner-border text-primary" role="status"></div>
+        <div className="mt-2 text-muted">Loading manufacturing executive metrics...</div>
+      </div>
+    );
+  }
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'PENDING': return <span className="badge bg-warning text-dark">PENDING</span>;
+      case 'CONFIRMED': return <span className="badge bg-primary">CONFIRMED</span>;
+      case 'PROCESSING': return <span className="badge bg-info text-dark">PROCESSING</span>;
+      case 'SHIPPED': return <span className="badge bg-indigo text-white" style={{ backgroundColor: '#6610f2' }}>SHIPPED</span>;
+      case 'DELIVERED': return <span className="badge bg-success">DELIVERED</span>;
+      default: return <span className="badge bg-secondary">{status}</span>;
+    }
+  };
+
   return (
     <div>
+      {/* Top Welcome Banner */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h2 className="fw-bold mb-1">Executive Manufacturing Dashboard</h2>
+          <h2 className="fw-bold mb-1">Apex Manufacturing Executive Dashboard</h2>
           <p className="text-muted mb-0">Welcome back, <strong>{user?.fullName}</strong> ({user?.roles?.join(', ')})</p>
         </div>
-        <div className="badge bg-light text-dark border p-2">
-          <i className="bi bi-calendar3 me-1 text-primary"></i> FY 2026-27 (INR)
+        <div className="d-flex gap-2">
+          <span className="badge bg-success p-2 d-flex align-items-center">
+            <i className="bi bi-check-circle-fill me-1"></i> System Online
+          </span>
+          <span className="badge bg-light text-dark border p-2">
+            <i className="bi bi-calendar3 me-1 text-primary"></i> FY 2026-27 (INR)
+          </span>
         </div>
       </div>
 
+      {/* Primary KPI Metrics */}
       <div className="row g-3 mb-4">
         <div className="col-12 col-sm-6 col-xl-3">
           <div className="card border-0 shadow-sm rounded-3 p-3 border-start border-4 border-primary">
             <div className="d-flex justify-content-between align-items-center">
               <div>
-                <div className="text-muted small fw-semibold text-uppercase">Enterprise Clients</div>
-                <div className="fs-3 fw-bold mt-1 text-dark">{loading ? '...' : stats.customers}</div>
+                <div className="text-muted small fw-semibold text-uppercase">Sales Order Book</div>
+                <div className="fs-3 fw-bold mt-1 text-dark">
+                  ₹{Number(stats?.totalSalesRevenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                </div>
               </div>
               <div className="p-3 bg-primary bg-opacity-10 text-primary rounded-circle">
-                <i className="bi bi-building fs-4"></i>
+                <i className="bi bi-cart-check fs-4"></i>
               </div>
             </div>
-            <div className="mt-2 text-muted small"><span className="text-success fw-bold">Active</span> Manufacturing Customers</div>
-          </div>
-        </div>
-
-        <div className="col-12 col-sm-6 col-xl-3">
-          <div className="card border-0 shadow-sm rounded-3 p-3 border-start border-4 border-success">
-            <div className="d-flex justify-content-between align-items-center">
-              <div>
-                <div className="text-muted small fw-semibold text-uppercase">Approved Vendors</div>
-                <div className="fs-3 fw-bold mt-1 text-dark">{loading ? '...' : stats.suppliers}</div>
-              </div>
-              <div className="p-3 bg-success bg-opacity-10 text-success rounded-circle">
-                <i className="bi bi-truck fs-4"></i>
-              </div>
+            <div className="mt-2 text-muted small">
+              <span className="text-primary fw-bold">{stats?.totalSalesOrders} Orders</span> ({stats?.pendingSalesOrders} pending confirmation)
             </div>
-            <div className="mt-2 text-muted small"><span className="text-success fw-bold">GST-Registered</span> Industrial Suppliers</div>
           </div>
         </div>
 
@@ -83,116 +86,201 @@ export default function Dashboard() {
           <div className="card border-0 shadow-sm rounded-3 p-3 border-start border-4 border-info">
             <div className="d-flex justify-content-between align-items-center">
               <div>
-                <div className="text-muted small fw-semibold text-uppercase">Manufactured Goods</div>
-                <div className="fs-3 fw-bold mt-1 text-dark">{loading ? '...' : stats.products}</div>
+                <div className="text-muted small fw-semibold text-uppercase">Procurement Spend</div>
+                <div className="fs-3 fw-bold mt-1 text-dark">
+                  ₹{Number(stats?.totalProcurementSpend || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                </div>
               </div>
               <div className="p-3 bg-info bg-opacity-10 text-info rounded-circle">
-                <i className="bi bi-box-seam fs-4"></i>
+                <i className="bi bi-truck fs-4"></i>
               </div>
             </div>
-            <div className="mt-2 text-muted small">Catalog Products with BOM recipes</div>
+            <div className="mt-2 text-muted small">
+              <span className="text-info fw-bold">{stats?.totalPurchaseOrders} Purchase Orders</span> across suppliers
+            </div>
           </div>
         </div>
 
         <div className="col-12 col-sm-6 col-xl-3">
-          <div className="card border-0 shadow-sm rounded-3 p-3 border-start border-4 border-warning">
+          <div className="card border-0 shadow-sm rounded-3 p-3 border-start border-4 border-success">
             <div className="d-flex justify-content-between align-items-center">
               <div>
-                <div className="text-muted small fw-semibold text-uppercase">Raw Materials</div>
-                <div className="fs-3 fw-bold mt-1 text-dark">{loading ? '...' : stats.materials}</div>
+                <div className="text-muted small fw-semibold text-uppercase">Realized Collections</div>
+                <div className="fs-3 fw-bold mt-1 text-success">
+                  ₹{Number(stats?.totalCollectedPayments || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                </div>
               </div>
-              <div className="p-3 bg-warning bg-opacity-10 text-warning rounded-circle">
-                <i className="bi bi-boxes fs-4"></i>
+              <div className="p-3 bg-success bg-opacity-10 text-success rounded-circle">
+                <i className="bi bi-cash-stack fs-4"></i>
               </div>
             </div>
-            <div className="mt-2 text-muted small">Tracked Inventory Stocks &amp; Scrap Buffers</div>
+            <div className="mt-2 text-muted small">
+              <span className="text-success fw-bold">Settled Payments</span> via RTGS / NEFT / UPI
+            </div>
+          </div>
+        </div>
+
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="card border-0 shadow-sm rounded-3 p-3 border-start border-4 border-danger">
+            <div className="d-flex justify-content-between align-items-center">
+              <div>
+                <div className="text-muted small fw-semibold text-uppercase">Receivables Balance</div>
+                <div className="fs-3 fw-bold mt-1 text-danger">
+                  ₹{Number(stats?.outstandingBalanceDue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                </div>
+              </div>
+              <div className="p-3 bg-danger bg-opacity-10 text-danger rounded-circle">
+                <i className="bi bi-wallet2 fs-4"></i>
+              </div>
+            </div>
+            <div className="mt-2 text-muted small">
+              <span className="text-danger fw-bold">{stats?.totalInvoices} Invoices</span> issued to date
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="row g-4">
-        <div className="col-lg-8">
-          <div className="card border-0 shadow-sm rounded-3 p-4">
-            <h5 className="fw-bold mb-3"><i className="bi bi-diagram-3-fill text-primary me-2"></i>Manufacturing Workflow Pipeline</h5>
-            <div className="p-3 bg-light rounded-3">
-              <div className="row text-center g-2">
-                <div className="col">
-                  <div className="p-2 bg-white rounded shadow-sm border">
-                    <span className="badge bg-secondary mb-1">Step 1</span>
-                    <div className="fw-bold small">Sales Order</div>
-                    <small className="text-muted" style={{ fontSize: '0.75rem' }}>Auto 18% GST</small>
-                  </div>
-                </div>
-                <div className="col-auto d-flex align-items-center text-muted">&rarr;</div>
-                <div className="col">
-                  <div className="p-2 bg-white rounded shadow-sm border">
-                    <span className="badge bg-primary mb-1">Step 2</span>
-                    <div className="fw-bold small">BOM Explosion</div>
-                    <small className="text-muted" style={{ fontSize: '0.75rem' }}>Gross Demand + Scrap</small>
-                  </div>
-                </div>
-                <div className="col-auto d-flex align-items-center text-muted">&rarr;</div>
-                <div className="col">
-                  <div className="p-2 bg-white rounded shadow-sm border">
-                    <span className="badge bg-warning text-dark mb-1">Step 3</span>
-                    <div className="fw-bold small">PO Procurement</div>
-                    <small className="text-muted" style={{ fontSize: '0.75rem' }}>Replenish Shortfall</small>
-                  </div>
-                </div>
-                <div className="col-auto d-flex align-items-center text-muted">&rarr;</div>
-                <div className="col">
-                  <div className="p-2 bg-white rounded shadow-sm border">
-                    <span className="badge bg-success mb-1">Step 4</span>
-                    <div className="fw-bold small">Invoice &amp; Pay</div>
-                    <small className="text-muted" style={{ fontSize: '0.75rem' }}>GST Tax Invoice</small>
-                  </div>
-                </div>
-              </div>
-            </div>
+      {/* Low Stock Alert Banner (If Any) */}
+      {stats?.lowStockMaterialCount > 0 && (
+        <div className="alert alert-warning border-0 shadow-sm mb-4 d-flex justify-content-between align-items-center">
+          <div>
+            <i className="bi bi-exclamation-triangle-fill text-warning fs-5 me-2"></i>
+            <strong>Inventory Alert:</strong> {stats.lowStockMaterialCount} raw material(s) have reached or fallen below their safety reorder level!
+          </div>
+          <Link to="/purchase-orders" className="btn btn-warning btn-sm fw-bold">
+            Issue Replenishment PO &rarr;
+          </Link>
+        </div>
+      )}
 
-            <div className="mt-4">
-              <h6 className="fw-bold text-muted small text-uppercase">Role Quick Actions:</h6>
-              <div className="d-flex flex-wrap gap-2 mt-2">
-                {(isAdmin || isOrderManager) && (
-                  <a href="/customers" className="btn btn-outline-primary btn-sm"><i className="bi bi-building me-1"></i>Manage Customers</a>
-                )}
-                {(isAdmin || isProcurementOfficer) && (
-                  <a href="/suppliers" className="btn btn-outline-success btn-sm"><i className="bi bi-truck me-1"></i>Manage Suppliers</a>
-                )}
-                <a href="/products" className="btn btn-outline-info btn-sm"><i className="bi bi-box-seam me-1"></i>View Product Catalog</a>
-                {(isAdmin || isProcurementOfficer) && (
-                  <a href="/raw-materials" className="btn btn-outline-warning btn-sm"><i className="bi bi-boxes me-1"></i>Check Raw Materials</a>
-                )}
-              </div>
+      {/* Main Grid: Monthly Trend & Recent Orders */}
+      <div className="row g-4 mb-4">
+        {/* Monthly Revenue Bars */}
+        <div className="col-lg-6">
+          <div className="card border-0 shadow-sm h-100 p-4">
+            <h5 className="fw-bold mb-3">
+              <i className="bi bi-bar-chart-fill text-primary me-2"></i>
+              Monthly Order Book Trend
+            </h5>
+            <p className="text-muted small mb-4">Revenue booked across monthly billing cycles (INR):</p>
+
+            <div className="d-flex flex-column gap-3">
+              {stats?.monthlySales?.map(m => {
+                const maxRev = Math.max(...stats.monthlySales.map(s => Number(s.revenue) || 1));
+                const pct = Math.min(100, Math.round(((Number(m.revenue) || 0) / maxRev) * 100));
+
+                return (
+                  <div key={m.month}>
+                    <div className="d-flex justify-content-between small fw-semibold mb-1">
+                      <span>{m.label} ({m.orderCount} orders)</span>
+                      <span className="text-primary">₹{Number(m.revenue).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="progress" style={{ height: '14px' }}>
+                      <div
+                        className="progress-bar bg-primary progress-bar-striped"
+                        role="progressbar"
+                        style={{ width: `${pct}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
 
-        <div className="col-lg-4">
-          <div className="card border-0 shadow-sm rounded-3 p-4">
-            <h5 className="fw-bold mb-3"><i className="bi bi-info-circle-fill text-info me-2"></i>System Status</h5>
-            <ul className="list-group list-group-flush small">
-              <li className="list-group-item d-flex justify-content-between px-0">
-                <span>Database Engine</span>
-                <span className="badge bg-success">MySQL 8.0 (oms_db)</span>
-              </li>
-              <li className="list-group-item d-flex justify-content-between px-0">
-                <span>Normalized Tables</span>
-                <span className="fw-bold">15 3NF Tables</span>
-              </li>
-              <li className="list-group-item d-flex justify-content-between px-0">
-                <span>Backend Framework</span>
-                <span className="badge bg-primary">Spring Boot 3.3.5</span>
-              </li>
-              <li className="list-group-item d-flex justify-content-between px-0">
-                <span>Security Engine</span>
-                <span className="badge bg-dark">Spring Security 6 (JWT)</span>
-              </li>
-              <li className="list-group-item d-flex justify-content-between px-0">
-                <span>Password Hashing</span>
-                <span className="badge bg-secondary">BCrypt (10 Rounds)</span>
-              </li>
-            </ul>
+        {/* Manufacturing Operations Quick Jump */}
+        <div className="col-lg-6">
+          <div className="card border-0 shadow-sm h-100 p-4">
+            <h5 className="fw-bold mb-3">
+              <i className="bi bi-diagram-3-fill text-success me-2"></i>
+              Core Department Navigation
+            </h5>
+            <p className="text-muted small mb-3">Quickly navigate to active department modules:</p>
+
+            <div className="row g-2">
+              <div className="col-6">
+                <Link to="/sales-orders" className="card p-3 text-decoration-none border h-100 hover-shadow bg-light">
+                  <div className="d-flex align-items-center">
+                    <i className="bi bi-cart-check fs-3 text-primary me-3"></i>
+                    <div>
+                      <div className="fw-bold text-dark">Sales Orders</div>
+                      <small className="text-muted">Create &amp; Track</small>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+              <div className="col-6">
+                <Link to="/bom" className="card p-3 text-decoration-none border h-100 hover-shadow bg-light">
+                  <div className="d-flex align-items-center">
+                    <i className="bi bi-diagram-3 fs-3 text-info me-3"></i>
+                    <div>
+                      <div className="fw-bold text-dark">Bill of Materials</div>
+                      <small className="text-muted">Explosion Engine</small>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+              <div className="col-6">
+                <Link to="/purchase-orders" className="card p-3 text-decoration-none border h-100 hover-shadow bg-light">
+                  <div className="d-flex align-items-center">
+                    <i className="bi bi-truck fs-3 text-warning me-3"></i>
+                    <div>
+                      <div className="fw-bold text-dark">Purchase Orders</div>
+                      <small className="text-muted">Procure &amp; Receive</small>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+              <div className="col-6">
+                <Link to="/invoices" className="card p-3 text-decoration-none border h-100 hover-shadow bg-light">
+                  <div className="d-flex align-items-center">
+                    <i className="bi bi-receipt fs-3 text-success me-3"></i>
+                    <div>
+                      <div className="fw-bold text-dark">Tax Invoices</div>
+                      <small className="text-muted">GST &amp; Billing</small>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Orders Table */}
+      <div className="card border-0 shadow-sm">
+        <div className="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+          <h5 className="fw-bold mb-0">Latest Customer Sales Orders</h5>
+          <Link to="/sales-orders" className="btn btn-sm btn-outline-primary">View All Orders &rarr;</Link>
+        </div>
+        <div className="card-body p-0">
+          <div className="table-responsive">
+            <table className="table table-hover align-middle mb-0">
+              <thead className="table-light">
+                <tr>
+                  <th className="ps-3">Order Number</th>
+                  <th>Customer</th>
+                  <th>Order Date</th>
+                  <th>Status</th>
+                  <th className="text-end">Grand Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats?.recentOrders?.map(o => (
+                  <tr key={o.id}>
+                    <td className="ps-3 fw-bold text-primary font-monospace">{o.orderNumber}</td>
+                    <td>
+                      <div className="fw-semibold">{o.customerName}</div>
+                      <small className="text-muted">{o.customerCode}</small>
+                    </td>
+                    <td>{o.orderDate}</td>
+                    <td>{getStatusBadge(o.status)}</td>
+                    <td className="text-end fw-bold">₹{Number(o.grandTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

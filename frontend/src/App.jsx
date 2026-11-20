@@ -14,6 +14,8 @@ import RawMaterialManagement from './pages/RawMaterialManagement';
 import SalesOrderManagement from './pages/SalesOrderManagement';
 import BomManagement from './pages/BomManagement';
 import PurchaseOrderManagement from './pages/PurchaseOrderManagement';
+import InvoiceManagement from './pages/InvoiceManagement';
+import PaymentManagement from './pages/PaymentManagement';
 
 export default function App() {
   return (
@@ -34,8 +36,8 @@ export default function App() {
               <Route element={<ProtectedRoute allowedRoles={['ROLE_ADMIN', 'ROLE_ORDER_MANAGER']} />}>
                 <Route path="/customers" element={<CustomerManagement />} />
                 <Route path="/sales-orders" element={<SalesOrderManagement />} />
-                <Route path="/invoices" element={<div className="card p-4 border-0 shadow-sm"><h4>Invoices Module</h4><p className="text-muted">Sprint 3 Implementation Ready</p></div>} />
-                <Route path="/payments" element={<div className="card p-4 border-0 shadow-sm"><h4>Payments Module</h4><p className="text-muted">Sprint 3 Implementation Ready</p></div>} />
+                <Route path="/invoices" element={<InvoiceManagement />} />
+                <Route path="/payments" element={<PaymentManagement />} />
               </Route>
 
               {/* Procurement Officer & Admin */}
