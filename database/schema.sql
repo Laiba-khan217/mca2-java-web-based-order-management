@@ -1,10 +1,11 @@
-﻿-- =====================================================================
+-- =====================================================================
 -- J12: Web-Based Order Management System (Manufacturing OMS)
 -- Database: MySQL 8.0 (oms_db)
 -- Specification: 3NF Normalized Schema with Referential Integrity
 -- =====================================================================
 
-CREATE DATABASE IF NOT EXISTS oms_db
+DROP DATABASE IF EXISTS oms_db;
+CREATE DATABASE oms_db
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 
